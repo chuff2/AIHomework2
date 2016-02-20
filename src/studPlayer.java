@@ -45,22 +45,25 @@ public class studPlayer extends Player {
     	int currentDepth = 0;//TODO might need to be 1?
     	int alpha = Integer.MIN_VALUE;
     	int beta = Integer.MAX_VALUE;
-    	int bestMove = maxAction(state, currentDepth, maxDepth, alpha, beta);
+    	int bestMove = maxAction(state, currentDepth, maxDepth, alpha, beta).getBin();
     	return bestMove;
     }
     //return best move for min player. Note that this is a wrapper function created for ease to use.
     public int minAction(GameState state, int maxDepth){
-    	//not sure that we even ever use this function...
-    	//confirmed on piazza... this function is useless
+    	//we never use this function, because we always start from the maxAction wrapper function
     	return 0;
     }
     
     //return best move for max player
-    public int maxAction(GameState state, int currentDepth, int maxDepth, int alpha, int beta){
-    	//TODO do terminal test here
-    	
+    public BinVScorePair maxAction(GameState state, int currentDepth, int maxDepth, int alpha, int beta){
+    	//do terminal test here
+    	if (state.gameOver()){
+    		//don't know the bin... will get set higher up
+    		BinVScorePair pair = new BinVScorePair( 0, sbe(state));
+    		return pair;
+    	}
     	//our value to determine cutoffs
-    	int v = Integer.MIN_VALUE;
+    	BinVScorePair pair = new BinVScorePair( 0, Integer.MIN_VALUE);
     	//if we still have room to explore in our tree
     	if (currentDepth < maxDepth){
     		//loop through all possible moves for this state
@@ -70,26 +73,43 @@ public class studPlayer extends Player {
     				//here we get the copy of the given current state
         			GameState childState = new GameState(state);
         			//now we apply to move to the copied state, so that we don't destroy the actual state
-        			childState.applyMove(i);
-        			v = Math.max(v, minAction(childState, currentDepth, maxDepth, alpha, beta));
-        			if (v >= beta)
-        				return v;
-        			alpha = Math.max(alpha, v);
+        			boolean anotherTurn = childState.applyMove(i);
+        			BinVScorePair  tempPair;
+        			if (anotherTurn){
+        				tempPair = maxAction(childState, currentDepth + 1, maxDepth, alpha, beta);
+        			}
+        			else{
+        				tempPair = minAction(childState, currentDepth + 1, maxDepth, alpha, beta);
+        			}
+        			if (pair.getVScore() < tempPair.getVScore()){
+        				tempPair.setBin(i);
+        				pair = tempPair;
+        			}
+        			if (pair.getVScore() >= beta)
+        				return pair;
+        			alpha = Math.max(alpha, pair.getVScore());
     			}
     		}
     	}
     	//currentDepth must be == maxDepth here
     	else{
     		//TODO make sure this satisfies the tie condition explained in the spec
-        	return sbe(state);
+    		pair.setVScore(sbe(state));
     	}
-    	return v;
+    	return pair;
     }
+    
+    
     //return best move for min player
-    public int minAction(GameState state, int currentDepth, int maxDepth, int alpha, int beta){
-    	//TODO do terminal test here
-    	
-    	int v = Integer.MAX_VALUE;
+    public BinVScorePair minAction(GameState state, int currentDepth, int maxDepth, int alpha, int beta){
+    	//do terminal test here
+    	if (state.gameOver()){
+    		//don't know the bin... will get set higher up
+    		BinVScorePair pair = new BinVScorePair( 0, sbe(state));
+    		return pair;
+    	}
+    	//our value to determine cutoffs
+    	BinVScorePair pair = new BinVScorePair( 0, Integer.MAX_VALUE);
     	//if we still have room to explore in our tree
     	if (currentDepth < maxDepth){
     		//loop through all possible moves for this state
@@ -99,28 +119,43 @@ public class studPlayer extends Player {
     				//here we get the copy of the given current state
         			GameState childState = new GameState(state);
         			//now we apply to move to the copied state, so that we don't destroy the actual state
-        			childState.applyMove(i);
-        			v = Math.max(v, maxAction(childState, currentDepth, maxDepth, alpha, beta));
-        			if (v <= alpha)
-        				return v;
-        			beta = Math.min(beta, v);
+        			boolean anotherTurn = childState.applyMove(i);
+        			BinVScorePair tempPair;
+        			if (anotherTurn){
+        				tempPair = minAction(childState, currentDepth + 1, maxDepth, alpha, beta);
+        			}
+        			else{
+        				tempPair = maxAction(childState, currentDepth + 1, maxDepth, alpha, beta);
+        			}
+        			if (pair.getVScore() > tempPair.getVScore()){
+        				tempPair.setBin(i);
+        				pair = tempPair;
+        			}
+        			if (pair.getVScore() <= alpha)
+        				return pair;
+        			beta = Math.min(beta, pair.getVScore());
     			}
     		}
     	}
     	//currentDepth must be == maxDepth here
     	else{
     		//TODO make sure this satisfies the tie condition explained in the spec
-    		//TODO also make sure that this is ok for the min function (i.e. can we copy this from maxAction??)
-    		//i totally see where this question is coming from... https://piazza.com/class/ij0elbmn6x64s5?cid=91
-        	return sbe(state);
+    		pair.setVScore(sbe(state));
     	}
-    	return v;
+    	return pair;
     }
 
     //the sbe function for game state. Note that in the game state, the bins for current player are always in the bottom row.
     private int sbe(GameState state){
-    	
-    	return 0;
+    	//(my_mancala – your_mancala) + (marbles_on_my_side – marbles_on_your_side)
+    	int v = 0;
+    	for (int i = 0; i < 7; i++){
+    		v += state.stoneCount(i);
+    	}
+    	for (int i = 7; i < 14; i++){
+    		v -= state.stoneCount(i);
+    	}
+    	return v;
     }
 
 
